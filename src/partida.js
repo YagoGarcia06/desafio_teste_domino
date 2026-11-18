@@ -12,6 +12,7 @@ class Partida {
     this.maos = maos;
     this.monte = monte;
     this.mesa = new Mesa();
+    this.passesSeguidos = 0;
     this.resultado = null;
     this.definirInicio();
   }
@@ -65,6 +66,10 @@ class Partida {
     return mao.filter((peca) => this.mesa.pontasPossiveis(peca).length > 0);
   }
 
+  temJogada(jogador) {
+    return this.pecasJogaveis(jogador).length > 0;
+  }
+
   jogar(jogador, peca, ponta) {
     this.validarAcao(jogador);
     const indice = this.maos[jogador].findIndex((p) => mesmaPeca(p, peca));
@@ -78,6 +83,32 @@ class Partida {
       this.mesa.colocar(peca, ponta ?? this.pontaAutomatica(peca));
     }
     this.maos[jogador].splice(indice, 1);
+    this.passesSeguidos = 0;
+    this.passarVez();
+  }
+
+  comprar(jogador) {
+    this.validarAcao(jogador);
+    if (this.temJogada(jogador)) {
+      throw new Error(`O jogador ${jogador} tem peça jogável e não pode comprar`);
+    }
+    if (this.monte.length === 0) {
+      throw new Error('O monte está vazio');
+    }
+    const peca = this.monte.shift();
+    this.maos[jogador].push(peca);
+    return peca;
+  }
+
+  passar(jogador) {
+    this.validarAcao(jogador);
+    if (this.temJogada(jogador)) {
+      throw new Error(`O jogador ${jogador} tem peça jogável e não pode passar`);
+    }
+    if (this.monte.length > 0) {
+      throw new Error('Só é possível passar com o monte vazio');
+    }
+    this.passesSeguidos += 1;
     this.passarVez();
   }
 
