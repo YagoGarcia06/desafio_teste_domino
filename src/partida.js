@@ -83,11 +83,12 @@ class Partida {
     if (indice === -1) {
       throw new Error(`A peça ${textoPeca(peca)} não está na mão do jogador ${jogador}`);
     }
+    const daMao = this.maos[jogador][indice];
     if (this.mesa.estaVazia()) {
-      this.validarPrimeiraJogada(peca);
-      this.mesa.colocar(peca);
+      this.validarPrimeiraJogada(daMao);
+      this.mesa.colocar(daMao);
     } else {
-      this.mesa.colocar(peca, ponta ?? this.pontaAutomatica(peca));
+      this.mesa.colocar(daMao, ponta ?? this.pontaAutomatica(daMao));
     }
     this.maos[jogador].splice(indice, 1);
     this.passesSeguidos = 0;
