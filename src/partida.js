@@ -1,0 +1,120 @@
+const { ehDupla, mesmaPeca, compararPecas, textoPeca } = require('./peca');
+const { criarConjunto, embaralhar, distribuir, QUANTIDADE_JOGADORES } = require('./conjunto');
+const { Mesa, DIREITA } = require('./mesa');
+
+
+class Partida {
+  constructor({ rng, ordem, jogadores = QUANTIDADE_JOGADORES } = {}) {
+    if (jogadores !== QUANTIDADE_JOGADORES) {
+      throw new Error('A partida de dominó exige exatamente 2 jogadores');
+    }
+    const { maos, monte } = distribuir(Partida.ordemInicial(rng, ordem));
+    this.maos = maos;
+    this.monte = monte;
+    this.mesa = new Mesa();
+    this.resultado = null;
+    this.definirInicio();
+  }
+
+  static ordemInicial(rng, ordem) {
+    if (ordem !== undefined) {
+      return ordem;
+    }
+    if (rng === undefined) {
+      throw new Error('Informe um rng ou uma ordem de peças para criar a partida');
+    }
+    return embaralhar(criarConjunto(), rng);
+  }
+
+  // Maior duplo nas mãos; sem duplos, a maior peça (soma e, no empate, maior lado).
+  definirInicio() {
+    const todas = this.maos.flat();
+    const duplas = todas.filter(ehDupla);
+    const candidatas = duplas.length > 0 ? duplas : todas;
+    const maior = candidatas.reduce((atual, peca) => (compararPecas(peca, atual) > 0 ? peca : atual));
+    this.primeiraJogada = maior;
+    this.jogadorAtual = this.maos.findIndex((mao) => mao.some((p) => mesmaPeca(p, maior)));
+  }
+
+  get encerrada() {
+    return this.resultado !== null;
+  }
+
+  mao(jogador) {
+    this.validarJogador(jogador);
+    return [...this.maos[jogador]];
+  }
+
+  pontas() {
+    return this.mesa.pontas();
+  }
+
+  pecasNaMesa() {
+    return [...this.mesa.pecas];
+  }
+
+  pecasNoMonte() {
+    return this.monte.length;
+  }
+
+  pecasJogaveis(jogador) {
+    const mao = this.mao(jogador);
+    if (this.mesa.estaVazia()) {
+      return mao.filter((peca) => mesmaPeca(peca, this.primeiraJogada));
+    }
+    return mao.filter((peca) => this.mesa.pontasPossiveis(peca).length > 0);
+  }
+
+  jogar(jogador, peca, ponta) {
+    this.validarAcao(jogador);
+    const indice = this.maos[jogador].findIndex((p) => mesmaPeca(p, peca));
+    if (indice === -1) {
+      throw new Error(`A peça ${textoPeca(peca)} não está na mão do jogador ${jogador}`);
+    }
+    if (this.mesa.estaVazia()) {
+      this.validarPrimeiraJogada(peca);
+      this.mesa.colocar(peca);
+    } else {
+      this.mesa.colocar(peca, ponta ?? this.pontaAutomatica(peca));
+    }
+    this.maos[jogador].splice(indice, 1);
+    this.passarVez();
+  }
+
+  validarJogador(jogador) {
+    if (jogador !== 0 && jogador !== 1) {
+      throw new Error(`Jogador inválido: ${jogador}. Use 0 ou 1`);
+    }
+  }
+
+  validarAcao(jogador) {
+    this.validarJogador(jogador);
+    if (jogador !== this.jogadorAtual) {
+      throw new Error(`Não é a vez do jogador ${jogador}`);
+    }
+  }
+
+  validarPrimeiraJogada(peca) {
+    if (!mesmaPeca(peca, this.primeiraJogada)) {
+      throw new Error(`A primeira jogada deve ser ${textoPeca(this.primeiraJogada)}`);
+    }
+  }
+
+  pontaAutomatica(peca) {
+    const possiveis = this.mesa.pontasPossiveis(peca);
+    if (possiveis.length === 0) {
+      throw new Error(`A peça ${textoPeca(peca)} não encaixa em nenhuma ponta da mesa`);
+    }
+    const { esquerda, direita } = this.mesa.pontas();
+    if (possiveis.length === 2 && esquerda !== direita) {
+      throw new Error(`A peça ${textoPeca(peca)} encaixa nas duas pontas: informe "esquerda" ou "direita"`);
+    }
+    return possiveis.includes(DIREITA) ? DIREITA : possiveis[0];
+  }
+
+  passarVez() {
+    this.jogadorAtual = 1 - this.jogadorAtual;
+  }
+}
+
+module.exports = { Partida };
