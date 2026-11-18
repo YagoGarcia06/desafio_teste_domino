@@ -78,6 +78,9 @@ class Partida {
   }
 
   jogar(jogador, peca, ponta) {
+    if (peca === null || typeof peca !== 'object') {
+      throw new Error('Informe a peça a jogar');
+    }
     this.validarAcao(jogador);
     const indice = this.maos[jogador].findIndex((p) => mesmaPeca(p, peca));
     if (indice === -1) {
