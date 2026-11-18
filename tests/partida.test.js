@@ -297,6 +297,15 @@ describe('Jogadas', () => {
     expect(partida.pecasNaMesa()).toEqual([p(6, 6), p(6, 5)]);
     expect(partida.pontas()).toEqual({ esquerda: 6, direita: 5 });
   });
+
+  test('CT-JOGADA-19: jogar sem informar a peça gera erro', () => {
+    const partida = novaPartida(BATIDA_MAO0, BATIDA_MAO1);
+    expect(() => partida.jogar(0)).toThrow(/Informe a peça a jogar/);
+    expect(() => partida.jogar(0, null)).toThrow(/Informe a peça a jogar/);
+    expect(() => partida.jogar(0, '6|6')).toThrow(/Informe a peça a jogar/);
+    expect(partida.pecasNaMesa()).toEqual([]);
+    expect(partida.jogadorAtual).toBe(0);
+  });
 });
 
 describe('Compra', () => {
