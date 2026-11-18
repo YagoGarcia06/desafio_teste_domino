@@ -283,6 +283,20 @@ describe('Jogadas', () => {
     partida.jogar(0, p(6, 5));
     expect(partida.pecasNaMesa()).toEqual([p(5, 6), p(6, 6), p(6, 3)]);
   });
+
+  test('CT-JOGADA-18: alterar o objeto passado depois de jogar não altera a mesa', () => {
+    const partida = novaPartida(BATIDA_MAO0, BATIDA_MAO1);
+    const dupla = { a: 6, b: 6 };
+    partida.jogar(0, dupla);
+    dupla.a = 0;
+    dupla.b = 0;
+    const outra = { a: 6, b: 5 };
+    partida.jogar(1, outra, 'direita');
+    outra.a = 1;
+    outra.b = 1;
+    expect(partida.pecasNaMesa()).toEqual([p(6, 6), p(6, 5)]);
+    expect(partida.pontas()).toEqual({ esquerda: 6, direita: 5 });
+  });
 });
 
 describe('Compra', () => {
