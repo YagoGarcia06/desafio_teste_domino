@@ -406,6 +406,9 @@ describe('Passe', () => {
 
 // Estratégia simples para partidas completas com semente: joga a primeira peça
 // jogável (preferindo a direita); sem jogada, compra; com o monte vazio, passa.
+// O limite de ações evita que um defeito na partida trave o teste em laço infinito.
+const LIMITE_DE_ACOES = 500;
+
 function jogarAteOFim(partida) {
   let acoes = 0;
   while (!partida.encerrada) {
@@ -421,6 +424,9 @@ function jogarAteOFim(partida) {
       partida.passar(jogador);
     }
     acoes += 1;
+    if (acoes > LIMITE_DE_ACOES) {
+      throw new Error(`A partida passou de ${LIMITE_DE_ACOES} ações sem terminar`);
+    }
   }
   return acoes;
 }
