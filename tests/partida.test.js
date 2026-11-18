@@ -1,6 +1,6 @@
 const { Partida } = require('../src/partida');
 const { criarConjunto } = require('../src/conjunto');
-const { criarPeca, mesmaPeca } = require('../src/peca');
+const { criarPeca, mesmaPeca, contemNumero } = require('../src/peca');
 const { criarRng } = require('../src/rng');
 
 const p = criarPeca;
@@ -378,5 +378,176 @@ describe('Passe', () => {
   test('CT-PASSE-05: jogador fora da vez não pode passar', () => {
     const partida = trancadoAtePrimeiroPasse();
     expect(() => partida.passar(0)).toThrow(/Não é a vez do jogador 0/);
+  });
+});
+
+// Estratégia simples para partidas completas com semente: joga a primeira peça
+// jogável (preferindo a direita); sem jogada, compra; com o monte vazio, passa.
+function jogarAteOFim(partida) {
+  let acoes = 0;
+  while (!partida.encerrada) {
+    const jogador = partida.jogadorAtual;
+    const [peca] = partida.pecasJogaveis(jogador);
+    if (peca) {
+      const pontas = partida.pontas();
+      const ponta = pontas === null || contemNumero(peca, pontas.direita) ? 'direita' : 'esquerda';
+      partida.jogar(jogador, peca, ponta);
+    } else if (partida.pecasNoMonte() > 0) {
+      partida.comprar(jogador);
+    } else {
+      partida.passar(jogador);
+    }
+    acoes += 1;
+  }
+  return acoes;
+}
+
+function totalDePecas(partida) {
+  return partida.pecasNaMesa().length + partida.mao(0).length + partida.mao(1).length + partida.pecasNoMonte();
+}
+
+function jogarTrancadoAteOFim() {
+  const partida = trancadoAtePrimeiroPasse();
+  partida.passar(1);
+  partida.jogar(0, p(6, 4), 'direita');
+  partida.jogar(1, p(4, 5), 'direita');
+  partida.jogar(0, p(6, 5), 'direita');
+  partida.passar(1);
+  partida.passar(0);
+  return partida;
+}
+
+describe('Batida', () => {
+  test('CT-BATIDA-01: partida completa sem compras: jogador 0 bate e marca 9 pontos', () => {
+    const partida = novaPartida(BATIDA_MAO0, BATIDA_MAO1);
+    BATIDA_JOGADAS.forEach(([jogador, peca]) => partida.jogar(jogador, peca, 'direita'));
+    expect(partida.mao(0)).toEqual([]);
+    expect(partida.mao(1)).toEqual([p(3, 6)]);
+    expect(partida.encerrada).toBe(true);
+    expect(partida.resultado).toEqual({ motivo: 'batida', vencedor: 0, pontos: 9 });
+  });
+
+  test('CT-BATIDA-02: bater com o adversário só com [0|0] vale 0 pontos (limite)', () => {
+    const partida = novaPartida(
+      [p(6, 6), p(4, 5), p(2, 3), p(1, 1), p(0, 2), p(2, 4), p(0, 4)],
+      [p(5, 6), p(3, 4), p(1, 2), p(0, 1), p(2, 2), p(4, 4), p(0, 0)],
+    );
+    [
+      [0, p(6, 6)], [1, p(5, 6)], [0, p(4, 5)], [1, p(3, 4)], [0, p(2, 3)], [1, p(1, 2)],
+      [0, p(1, 1)], [1, p(0, 1)], [0, p(0, 2)], [1, p(2, 2)], [0, p(2, 4)], [1, p(4, 4)],
+      [0, p(0, 4)],
+    ].forEach(([jogador, peca]) => partida.jogar(jogador, peca, 'direita'));
+    expect(partida.resultado).toEqual({ motivo: 'batida', vencedor: 0, pontos: 0 });
+  });
+
+  test('CT-BATIDA-03: com uma peça na mão, a partida ainda não terminou', () => {
+    const partida = novaPartida(BATIDA_MAO0, BATIDA_MAO1);
+    BATIDA_JOGADAS.slice(0, -1).forEach(([jogador, peca]) => partida.jogar(jogador, peca, 'direita'));
+    expect(partida.mao(0)).toEqual([p(4, 4)]);
+    expect(partida.encerrada).toBe(false);
+    expect(partida.resultado).toBeNull();
+  });
+
+  test('CT-BATIDA-04: partida completa com semente 6 termina em batida do jogador 1', () => {
+    const partida = new Partida({ rng: criarRng(6) });
+    jogarAteOFim(partida);
+    expect(partida.resultado.motivo).toBe('batida');
+    expect(partida.resultado.vencedor).toBe(1);
+    expect(partida.mao(1)).toEqual([]);
+    expect(partida.resultado.pontos).toBe(partida.somaMao(0));
+    expect(totalDePecas(partida)).toBe(28);
+  });
+
+  test('CT-BATIDA-05: partida completa com semente 2 termina em batida do jogador 0', () => {
+    const partida = new Partida({ rng: criarRng(2) });
+    jogarAteOFim(partida);
+    expect(partida.resultado.motivo).toBe('batida');
+    expect(partida.resultado.vencedor).toBe(0);
+    expect(partida.mao(0)).toEqual([]);
+    expect(partida.resultado.pontos).toBe(partida.somaMao(1));
+    expect(totalDePecas(partida)).toBe(28);
+  });
+});
+
+describe('Jogo trancado', () => {
+  test('CT-TRANCADO-01: partida completa trancada: vence a menor soma e marca a do adversário', () => {
+    const partida = jogarTrancadoAteOFim();
+    expect(partida.pontas()).toEqual({ esquerda: 6, direita: 6 });
+    expect(partida.somaMao(0)).toBe(10);
+    expect(partida.somaMao(1)).toBe(80);
+    expect(partida.resultado).toEqual({ motivo: 'trancado', vencedor: 0, pontos: 80 });
+  });
+
+  test('CT-TRANCADO-02: um passe só não tranca o jogo', () => {
+    const partida = trancadoAtePrimeiroPasse();
+    partida.passar(1);
+    expect(partida.encerrada).toBe(false);
+  });
+
+  test('CT-TRANCADO-03: uma jogada entre dois passes zera a contagem', () => {
+    const partida = trancadoAtePrimeiroPasse();
+    partida.passar(1);
+    partida.jogar(0, p(6, 4), 'direita');
+    partida.jogar(1, p(4, 5), 'direita');
+    partida.jogar(0, p(6, 5), 'direita');
+    partida.passar(1);
+    expect(partida.encerrada).toBe(false);
+    expect(partida.jogadorAtual).toBe(0);
+  });
+
+  test('CT-TRANCADO-04: partida completa com semente 1 tranca e o jogador 1 vence', () => {
+    const partida = new Partida({ rng: criarRng(1) });
+    jogarAteOFim(partida);
+    expect(partida.resultado.motivo).toBe('trancado');
+    expect(partida.resultado.vencedor).toBe(1);
+    expect(partida.somaMao(1)).toBeLessThan(partida.somaMao(0));
+    expect(partida.resultado.pontos).toBe(partida.somaMao(0));
+    expect(partida.pecasNoMonte()).toBe(0);
+  });
+
+  test('CT-TRANCADO-05: partida completa com semente 102 tranca empatada, sem pontos', () => {
+    const partida = new Partida({ rng: criarRng(102) });
+    jogarAteOFim(partida);
+    expect(partida.somaMao(0)).toBe(partida.somaMao(1));
+    expect(partida.resultado).toEqual({ motivo: 'trancado', vencedor: null, pontos: 0 });
+    expect(totalDePecas(partida)).toBe(28);
+  });
+});
+
+describe('Fim da partida', () => {
+  function partidaBatida() {
+    const partida = novaPartida(BATIDA_MAO0, BATIDA_MAO1);
+    BATIDA_JOGADAS.forEach(([jogador, peca]) => partida.jogar(jogador, peca, 'direita'));
+    return partida;
+  }
+
+  test('CT-FIM-01: depois da batida, jogar gera erro', () => {
+    const partida = partidaBatida();
+    expect(() => partida.jogar(1, p(3, 6), 'esquerda')).toThrow(/já terminou/);
+  });
+
+  test('CT-FIM-02: depois da batida, comprar gera erro', () => {
+    const partida = partidaBatida();
+    expect(() => partida.comprar(1)).toThrow(/já terminou/);
+  });
+
+  test('CT-FIM-03: depois do trancado, passar gera erro', () => {
+    const partida = jogarTrancadoAteOFim();
+    expect(() => partida.passar(1)).toThrow(/já terminou/);
+  });
+
+  test('CT-FIM-04: o resultado não muda depois das tentativas após o fim', () => {
+    const partida = partidaBatida();
+    const resultado = { ...partida.resultado };
+    expect(() => partida.jogar(0, p(4, 4), 'direita')).toThrow(/já terminou/);
+    expect(partida.resultado).toEqual(resultado);
+  });
+
+  test('CT-FIM-05: cada partida é uma mão: uma nova partida começa sem pontos acumulados', () => {
+    partidaBatida();
+    const nova = novaPartida(BATIDA_MAO0, BATIDA_MAO1);
+    expect(nova.resultado).toBeNull();
+    expect(nova.mao(0)).toHaveLength(7);
+    expect(nova.pecasNaMesa()).toEqual([]);
   });
 });
