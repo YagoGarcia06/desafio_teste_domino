@@ -27,6 +27,38 @@ const BATIDA_JOGADAS = [
   [0, p(4, 4)],
 ];
 
+// Cenário de trancado: o jogador 1 não tem 6 e compra o monte inteiro; o [6|0] é a última peça.
+const TRANCADO_MAO0 = [p(6, 6), p(6, 2), p(6, 1), p(6, 3), p(6, 4), p(6, 5), p(5, 5)];
+const TRANCADO_MAO1 = [p(0, 1), p(2, 3), p(4, 5), p(1, 1), p(2, 2), p(3, 3), p(4, 4)];
+const TRANCADO_MONTE = [
+  p(0, 0), p(0, 2), p(0, 3), p(0, 4), p(0, 5), p(1, 2), p(1, 3),
+  p(1, 4), p(1, 5), p(2, 4), p(2, 5), p(3, 4), p(3, 5), p(6, 0),
+];
+
+function partidaTrancado() {
+  return novaPartida(TRANCADO_MAO0, TRANCADO_MAO1, TRANCADO_MONTE);
+}
+
+function comprarMonteInteiro(partida, jogador) {
+  for (let i = 0; i < 14; i++) {
+    partida.comprar(jogador);
+  }
+}
+
+// Leva o cenário de trancado até o primeiro passe obrigatório do jogador 1 (pontas 6 e 6, monte vazio).
+function trancadoAtePrimeiroPasse() {
+  const partida = partidaTrancado();
+  partida.jogar(0, p(6, 6));
+  comprarMonteInteiro(partida, 1);
+  partida.jogar(1, p(6, 0), 'esquerda');
+  partida.jogar(0, p(6, 2), 'direita');
+  partida.jogar(1, p(0, 1), 'esquerda');
+  partida.jogar(0, p(6, 1), 'esquerda');
+  partida.jogar(1, p(2, 3), 'direita');
+  partida.jogar(0, p(6, 3), 'direita');
+  return partida;
+}
+
 describe('Início da partida', () => {
   test('CT-INICIO-01: com rng, distribui 7 peças por jogador e deixa 14 no monte', () => {
     const partida = new Partida({ rng: criarRng(5) });
@@ -250,5 +282,101 @@ describe('Jogadas', () => {
     partida.jogar(1, p(6, 3), 'direita');
     partida.jogar(0, p(6, 5));
     expect(partida.pecasNaMesa()).toEqual([p(5, 6), p(6, 6), p(6, 3)]);
+  });
+});
+
+describe('Compra', () => {
+  test('CT-COMPRA-01: quem não tem jogada compra a próxima peça do monte e continua na vez', () => {
+    const partida = partidaTrancado();
+    partida.jogar(0, p(6, 6));
+    const comprada = partida.comprar(1);
+    expect(comprada).toEqual(p(0, 0));
+    expect(partida.mao(1)).toHaveLength(8);
+    expect(partida.pecasNoMonte()).toBe(13);
+    expect(partida.jogadorAtual).toBe(1);
+  });
+
+  test('CT-COMPRA-02: comprar tendo peça jogável gera erro', () => {
+    const partida = novaPartida(BATIDA_MAO0, BATIDA_MAO1);
+    partida.jogar(0, p(6, 6));
+    expect(() => partida.comprar(1)).toThrow(/tem peça jogável e não pode comprar/);
+    expect(partida.pecasNoMonte()).toBe(14);
+  });
+
+  test('CT-COMPRA-03: compra uma por vez até conseguir jogar, esvaziando o monte (limite)', () => {
+    const partida = partidaTrancado();
+    partida.jogar(0, p(6, 6));
+    for (let i = 0; i < 13; i++) {
+      partida.comprar(1);
+      expect(partida.temJogada(1)).toBe(false);
+    }
+    expect(partida.comprar(1)).toEqual(p(6, 0));
+    expect(partida.pecasNoMonte()).toBe(0);
+    expect(partida.mao(1)).toHaveLength(21);
+    expect(partida.pecasJogaveis(1)).toEqual([p(6, 0)]);
+  });
+
+  test('CT-COMPRA-04: depois de comprar a peça jogável, não pode comprar de novo', () => {
+    const partida = partidaTrancado();
+    partida.jogar(0, p(6, 6));
+    comprarMonteInteiro(partida, 1);
+    expect(() => partida.comprar(1)).toThrow(/tem peça jogável/);
+  });
+
+  test('CT-COMPRA-05: a peça comprada pode ser jogada em seguida', () => {
+    const partida = partidaTrancado();
+    partida.jogar(0, p(6, 6));
+    comprarMonteInteiro(partida, 1);
+    partida.jogar(1, p(6, 0), 'esquerda');
+    expect(partida.pontas()).toEqual({ esquerda: 0, direita: 6 });
+    expect(partida.jogadorAtual).toBe(0);
+  });
+
+  test('CT-COMPRA-06: sem jogada e com o monte vazio, comprar gera erro', () => {
+    const partida = trancadoAtePrimeiroPasse();
+    expect(partida.temJogada(1)).toBe(false);
+    expect(() => partida.comprar(1)).toThrow(/monte está vazio/);
+  });
+
+  test('CT-COMPRA-07: jogador fora da vez não pode comprar', () => {
+    const partida = partidaTrancado();
+    partida.jogar(0, p(6, 6));
+    expect(() => partida.comprar(0)).toThrow(/Não é a vez do jogador 0/);
+  });
+});
+
+describe('Passe', () => {
+  test('CT-PASSE-01: passar com peças no monte gera erro', () => {
+    const partida = partidaTrancado();
+    partida.jogar(0, p(6, 6));
+    expect(() => partida.passar(1)).toThrow(/monte vazio/);
+  });
+
+  test('CT-PASSE-02: passar com 1 peça no monte (limite) ainda gera erro', () => {
+    const partida = partidaTrancado();
+    partida.jogar(0, p(6, 6));
+    for (let i = 0; i < 13; i++) {
+      partida.comprar(1);
+    }
+    expect(partida.pecasNoMonte()).toBe(1);
+    expect(() => partida.passar(1)).toThrow(/monte vazio/);
+  });
+
+  test('CT-PASSE-03: passar tendo peça jogável gera erro', () => {
+    const partida = trancadoAtePrimeiroPasse();
+    partida.passar(1);
+    expect(() => partida.passar(0)).toThrow(/tem peça jogável e não pode passar/);
+  });
+
+  test('CT-PASSE-04: sem jogada e com o monte vazio, o passe dá a vez ao adversário', () => {
+    const partida = trancadoAtePrimeiroPasse();
+    partida.passar(1);
+    expect(partida.jogadorAtual).toBe(0);
+    expect(partida.encerrada).toBe(false);
+  });
+
+  test('CT-PASSE-05: jogador fora da vez não pode passar', () => {
+    const partida = trancadoAtePrimeiroPasse();
+    expect(() => partida.passar(0)).toThrow(/Não é a vez do jogador 0/);
   });
 });
