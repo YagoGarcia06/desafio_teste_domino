@@ -45,7 +45,8 @@ Dominó clássico com compra, conjunto duplo-seis. Só a lógica do jogo, sem in
 
 **Decisões de interpretação** (pontos que as regras acima não fixam):
 
-- A primeira jogada vai para a mesa vazia; a ponta informada nela é ignorada.
+- A primeira jogada vai para a mesa vazia; a ponta informada nela é ignorada, mesmo que seja inválida (por exemplo, `"cima"`).
+- A mesa guarda a peça que está na mão do jogador, e não o objeto passado para `jogar`. Jogar sem informar a peça gera erro.
 - Se a peça casa com as duas pontas e elas têm o **mesmo** valor, a ponta pode ser omitida e a peça vai para a `direita`.
 - Uma ponta diferente de `esquerda`/`direita` gera erro, mesmo quando a peça encaixa.
 - A compra tira a próxima peça do monte, na ordem em que ele foi formado. Comprar não conta como passe.
@@ -66,7 +67,7 @@ npm run coverage
 - **Identificação:** cada teste começa com um ID no formato `CT-<GRUPO>-NN` (por exemplo, `CT-JOGADA-08`). Os grupos da partida são `CT-INICIO`, `CT-JOGADA`, `CT-COMPRA`, `CT-PASSE`, `CT-BATIDA`, `CT-TRANCADO` e `CT-FIM`; os módulos de apoio usam `CT-PECA`, `CT-RNG`, `CT-CONJ` e `CT-MESA`.
 - **Normal, limite e erro:** para cada regra há o caso esperado, os casos de borda (lados 0 e 6, 27/28/29 peças, monte com 1 e com 0 peças, batida valendo 0 pontos, um passe só) e os casos que devem gerar erro, verificados com `toThrow` e um trecho da mensagem.
 - **Aleatoriedade controlada:** nenhum teste depende de sorte. Os cenários são montados com uma ordem de peças pronta (o helper `ordemCom` intercala as mãos desejadas e completa o monte), e as partidas embaralhadas usam `criarRng(semente)` com semente fixa.
-- **Partidas completas:** há partidas montadas jogada a jogada (batida sem compras, batida valendo 0 pontos e um jogo trancado em que o jogador 1 compra o monte inteiro) e partidas com semente jogadas até o fim por uma estratégia fixa (joga a primeira peça possível, senão compra, senão passa), cobrindo batida de cada jogador, trancado com vencedor e trancado empatado.
+- **Partidas completas:** há partidas montadas jogada a jogada (batida sem compras, batida valendo 0 pontos e um jogo trancado em que o jogador 1 compra o monte inteiro) e partidas com semente jogadas até o fim por uma estratégia fixa (joga a primeira peça possível, senão compra, senão passa), com limite de 500 ações para o teste nunca travar, cobrindo batida de cada jogador, trancado com vencedor e trancado empatado.
 
 ### `src/peca.js` — `tests/peca.test.js`
 
@@ -82,14 +83,14 @@ npm run coverage
 | CT-PECA-08 | Valores nos limites: `[0\|0]` vale 0 e `[6\|6]` vale 12 | 0 e 12 |
 | CT-PECA-09 | Peça com lados iguais é dupla | `true` |
 | CT-PECA-10 | Peça com lados diferentes não é dupla | `false` |
-| CT-PECA-11 | [a\|b] e [b\|a] são a mesma peça | `true` nas duas ordens |
+| CT-PECA-11 | `[a\|b]` e `[b\|a]` são a mesma peça | `true` nas duas ordens |
 | CT-PECA-12 | Peças com lados diferentes não são a mesma | `false` |
-| CT-PECA-13 | ContemNumero verifica os dois lados | `true` para 2 e 5, `false` para 3 |
+| CT-PECA-13 | `contemNumero` verifica os dois lados | `true` para 2 e 5, `false` para 3 |
 | CT-PECA-14 | Girar inverte os lados sem alterar a original | `[5\|2]`, original continua `[2\|5]` |
-| CT-PECA-15 | CompararPecas usa a soma como primeiro critério | `[3\|4]` maior que `[1\|5]` (resultado positivo/negativo) |
+| CT-PECA-15 | `compararPecas` usa a soma como primeiro critério | `[3\|4]` maior que `[1\|5]` (resultado positivo/negativo) |
 | CT-PECA-16 | Com soma igual, vence a peça com o maior lado | `[1\|5]` > `[2\|4]` e `[3\|3]` < `[2\|4]` |
 | CT-PECA-17 | A mesma peça (em qualquer ordem) compara como igual | 0 |
-| CT-PECA-18 | TextoPeca mostra a peça no formato [a\|b] | `"[3\|6]"` |
+| CT-PECA-18 | `textoPeca` mostra a peça no formato `[a\|b]` | `"[3\|6]"` |
 
 ### `src/rng.js` — `tests/rng.test.js`
 
@@ -112,11 +113,11 @@ npm run coverage
 | CT-CONJ-05 | Embaralhar com a mesma semente dá a mesma ordem | Ordens iguais |
 | CT-CONJ-06 | Embaralhar muda a ordem e mantém as mesmas 28 peças | Ordem diferente da original, com as mesmas 28 peças |
 | CT-CONJ-07 | Embaralhar não altera a lista original | Lista original intacta |
-| CT-CONJ-08 | Rng que sempre devolve 0 gera uma ordem previsível | `[1,2,3,4]` vira `[2,3,4,1]` |
+| CT-CONJ-08 | `rng` que sempre devolve 0 gera uma ordem previsível | `[1,2,3,4]` vira `[2,3,4,1]` |
 | CT-CONJ-09 | Embaralhar sem rng gera erro | Erro "rng" |
 | CT-CONJ-10 | Distribui 7 peças para cada jogador e deixa 14 no monte | 7 + 7 peças nas mãos e 14 no monte |
 | CT-CONJ-11 | Distribui alternando entre os jogadores 0 e 1 | Mão 0 = índices pares, mão 1 = ímpares, monte = índices 14 a 27 |
-| CT-CONJ-12 | ValidarConjunto aceita as 28 peças em qualquer ordem e lado | Devolve as 28 peças |
+| CT-CONJ-12 | `validarConjunto` aceita as 28 peças em qualquer ordem e lado | Devolve as 28 peças |
 | CT-CONJ-13 | Rejeita conjunto com 27 peças (uma a menos) | Erro "exatamente 28" |
 | CT-CONJ-14 | Rejeita conjunto com 29 peças (uma a mais) | Erro "exatamente 28" |
 | CT-CONJ-15 | Rejeita conjunto com peça repetida, mesmo invertida | Erro "repetida" citando `[1\|0]` |
@@ -130,7 +131,7 @@ npm run coverage
 | CT-MESA-01 | A mesa começa vazia e sem pontas | `estaVazia()` = true e `pontas()` = null |
 | CT-MESA-02 | A primeira peça entra como veio e define as duas pontas | Mesa `[6\|4]`, pontas 6 e 4 |
 | CT-MESA-03 | Com a mesa vazia, qualquer peça cabe nas duas pontas | `["esquerda", "direita"]` |
-| CT-MESA-04 | PontasPossiveis lista só as pontas que casam com a peça | `[direita]`, `[esquerda]`, as duas e nenhuma |
+| CT-MESA-04 | `pontasPossiveis` lista só as pontas que casam com a peça | `[direita]`, `[esquerda]`, as duas e nenhuma |
 | CT-MESA-05 | Encaixa na direita sem girar quando o lado a casa | Mesa `[6\|4][4\|2]`, pontas 6 e 2 |
 | CT-MESA-06 | Gira a peça para encaixar na direita | `[2\|4]` entra como `[4\|2]` |
 | CT-MESA-07 | Encaixa na esquerda sem girar quando o lado b casa | Mesa `[1\|6][6\|4]`, pontas 1 e 4 |
@@ -157,7 +158,7 @@ npm run coverage
 | CT-INICIO-08 | Sem duplos e com somas empatadas, vence a peça com o maior lado | Jogador 1 começa com `[1\|6]` |
 | CT-INICIO-09 | Antes da primeira jogada, só o duplo obrigatório é jogável | Jogador 0: só `[6\|6]`; jogador 1: nenhuma |
 | CT-INICIO-10 | Rejeita partida com 1 ou 3 jogadores | Erro "exatamente 2 jogadores" |
-| CT-INICIO-11 | Aceita explicitamente 2 jogadores | Partida criada, vez de 0 ou 1 |
+| CT-INICIO-11 | Aceita explicitamente 2 jogadores e começa pelo maior duplo (semente 1) | Mãos com 7 e 7, monte com 14; o único duplo é `[1\|1]`, do jogador 0, que começa |
 | CT-INICIO-12 | Rejeita partida sem rng e sem ordem | Erro "rng ou uma ordem" |
 | CT-INICIO-13 | Rejeita ordem pronta incompleta | Erro "exatamente 28" |
 | CT-INICIO-14 | Consulta a mão de jogador inexistente gera erro | Erro "Jogador inválido" |
@@ -180,9 +181,13 @@ npm run coverage
 | CT-JOGADA-12 | Ponta com nome inválido gera erro | Erro "Ponta inválida" |
 | CT-JOGADA-13 | A peça pode ser informada invertida | `[5\|6]` sai da mão |
 | CT-JOGADA-14 | A vez alterna entre os jogadores a cada jogada | Vez: 1, 0, 1, 0 |
-| CT-JOGADA-15 | PecasJogaveis lista as peças da mão que casam com as pontas | `[5\|6]` e `[3\|6]` |
-| CT-JOGADA-16 | Alterar a lista devolvida por mao() não altera a partida | Mão continua com 7 peças |
+| CT-JOGADA-15 | `pecasJogaveis` lista as peças da mão que casam com as pontas | `[5\|6]` e `[3\|6]` |
+| CT-JOGADA-16 | Alterar a lista devolvida por `mao()` não altera a partida | Mão continua com 7 peças |
 | CT-JOGADA-17 | Com a esquerda como única ponta possível, a ponta omitida vai para a esquerda | `[6\|5]` entra na esquerda como `[5\|6]` |
+| CT-JOGADA-18 | Alterar o objeto passado a `jogar` depois da jogada não altera a mesa | Mesa continua `[6\|6][6\|5]`, pontas 6 e 5 |
+| CT-JOGADA-19 | Jogar sem informar a peça gera erro | Erro "Informe a peça a jogar" para peça ausente, `null` e texto; mesa vazia e vez mantida |
+| CT-JOGADA-20 | Sem duplos, a primeira jogada com outra peça que não a maior gera erro | Erro "primeira jogada deve ser [6\|5]"; depois `[5\|6]` é aceita |
+| CT-JOGADA-21 | Na primeira jogada, a ponta informada é ignorada, mesmo inválida | Com `"cima"`, mesa `[6\|6]` e vez do jogador 1 |
 
 **Compra** (`CT-COMPRA`)
 
@@ -195,6 +200,7 @@ npm run coverage
 | CT-COMPRA-05 | A peça comprada pode ser jogada em seguida | Pontas 0 e 6; vez do jogador 0 |
 | CT-COMPRA-06 | Sem jogada e com o monte vazio, comprar gera erro | Erro "monte está vazio" |
 | CT-COMPRA-07 | Jogador fora da vez não pode comprar | Erro "Não é a vez do jogador 0" |
+| CT-COMPRA-08 | Jogador inexistente não pode comprar | Erro "Jogador inválido: 2"; monte com 14 |
 
 **Passe** (`CT-PASSE`)
 
@@ -205,6 +211,7 @@ npm run coverage
 | CT-PASSE-03 | Passar tendo peça jogável gera erro | Erro "tem peça jogável e não pode passar" |
 | CT-PASSE-04 | Sem jogada e com o monte vazio, o passe dá a vez ao adversário | Vez do jogador 0; partida continua |
 | CT-PASSE-05 | Jogador fora da vez não pode passar | Erro "Não é a vez do jogador 0" |
+| CT-PASSE-06 | Jogador inexistente não pode passar | Erro "Jogador inválido: 2"; vez mantida |
 
 **Batida** (`CT-BATIDA`)
 
@@ -235,10 +242,12 @@ npm run coverage
 | CT-FIM-03 | Depois do trancado, passar gera erro | Erro "já terminou" |
 | CT-FIM-04 | O resultado não muda depois das tentativas após o fim | Erro "já terminou"; resultado igual ao anterior |
 | CT-FIM-05 | Cada partida é uma mão: uma nova partida começa sem pontos acumulados | Nova partida sem resultado, com 7 peças por mão e mesa vazia |
+| CT-FIM-06 | Depois da batida, passar gera erro | Erro "já terminou" |
+| CT-FIM-07 | Depois do trancado, jogar e comprar geram erro | Erro "já terminou"; resultado igual ao anterior |
 
 ## Cobertura
 
-Resultado de `npm run coverage` (111 testes, todos passando):
+Resultado de `npm run coverage` (119 testes, todos passando):
 
 | Arquivo | Statements | Branches | Functions | Lines |
 | --- | --- | --- | --- | --- |
