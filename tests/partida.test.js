@@ -306,6 +306,24 @@ describe('Jogadas', () => {
     expect(partida.pecasNaMesa()).toEqual([]);
     expect(partida.jogadorAtual).toBe(0);
   });
+
+  test('CT-JOGADA-20: sem duplos, a primeira jogada com outra peça que não a maior gera erro', () => {
+    const partida = novaPartida(
+      [p(0, 1), p(0, 2), p(0, 3), p(0, 4), p(1, 2), p(1, 3), p(6, 5)],
+      [p(6, 4), p(5, 4), p(5, 3), p(6, 3), p(4, 3), p(6, 2), p(5, 2)],
+    );
+    expect(() => partida.jogar(0, p(0, 1))).toThrow(/primeira jogada deve ser \[6\|5\]/);
+    expect(partida.pecasNaMesa()).toEqual([]);
+    partida.jogar(0, p(5, 6));
+    expect(partida.pecasNaMesa()).toEqual([p(6, 5)]);
+  });
+
+  test('CT-JOGADA-21: na primeira jogada, a ponta informada é ignorada, mesmo inválida', () => {
+    const partida = novaPartida(BATIDA_MAO0, BATIDA_MAO1);
+    partida.jogar(0, p(6, 6), 'cima');
+    expect(partida.pecasNaMesa()).toEqual([p(6, 6)]);
+    expect(partida.jogadorAtual).toBe(1);
+  });
 });
 
 describe('Compra', () => {
@@ -366,6 +384,13 @@ describe('Compra', () => {
     partida.jogar(0, p(6, 6));
     expect(() => partida.comprar(0)).toThrow(/Não é a vez do jogador 0/);
   });
+
+  test('CT-COMPRA-08: jogador inexistente não pode comprar', () => {
+    const partida = partidaTrancado();
+    partida.jogar(0, p(6, 6));
+    expect(() => partida.comprar(2)).toThrow(/Jogador inválido: 2/);
+    expect(partida.pecasNoMonte()).toBe(14);
+  });
 });
 
 describe('Passe', () => {
@@ -401,6 +426,12 @@ describe('Passe', () => {
   test('CT-PASSE-05: jogador fora da vez não pode passar', () => {
     const partida = trancadoAtePrimeiroPasse();
     expect(() => partida.passar(0)).toThrow(/Não é a vez do jogador 0/);
+  });
+
+  test('CT-PASSE-06: jogador inexistente não pode passar', () => {
+    const partida = trancadoAtePrimeiroPasse();
+    expect(() => partida.passar(2)).toThrow(/Jogador inválido: 2/);
+    expect(partida.jogadorAtual).toBe(1);
   });
 });
 
@@ -578,5 +609,18 @@ describe('Fim da partida', () => {
     expect(nova.resultado).toBeNull();
     expect(nova.mao(0)).toHaveLength(7);
     expect(nova.pecasNaMesa()).toEqual([]);
+  });
+
+  test('CT-FIM-06: depois da batida, passar gera erro', () => {
+    const partida = partidaBatida();
+    expect(() => partida.passar(1)).toThrow(/já terminou/);
+  });
+
+  test('CT-FIM-07: depois do trancado, jogar e comprar geram erro', () => {
+    const partida = jogarTrancadoAteOFim();
+    const resultado = { ...partida.resultado };
+    expect(() => partida.jogar(0, p(5, 5), 'direita')).toThrow(/já terminou/);
+    expect(() => partida.comprar(1)).toThrow(/já terminou/);
+    expect(partida.resultado).toEqual(resultado);
   });
 });
