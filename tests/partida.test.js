@@ -136,9 +136,16 @@ describe('Início da partida', () => {
     expect(() => new Partida({ rng: criarRng(1), jogadores: 3 })).toThrow(/exatamente 2 jogadores/);
   });
 
-  test('CT-INICIO-11: aceita explicitamente 2 jogadores', () => {
+  test('CT-INICIO-11: aceita explicitamente 2 jogadores e começa pelo maior duplo', () => {
     const partida = new Partida({ rng: criarRng(1), jogadores: 2 });
-    expect([0, 1]).toContain(partida.jogadorAtual);
+    expect(partida.mao(0)).toHaveLength(7);
+    expect(partida.mao(1)).toHaveLength(7);
+    expect(partida.pecasNoMonte()).toBe(14);
+    expect(partida.primeiraJogada).toEqual(p(1, 1));
+    expect(partida.jogadorAtual).toBe(0);
+    expect(partida.mao(0)).toContainEqual(p(1, 1));
+    const duplas = [...partida.mao(0), ...partida.mao(1)].filter((peca) => peca.a === peca.b);
+    expect(duplas).toEqual([p(1, 1)]);
   });
 
   test('CT-INICIO-12: rejeita partida sem rng e sem ordem', () => {
