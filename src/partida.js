@@ -1,7 +1,10 @@
-const { ehDupla, mesmaPeca, compararPecas, textoPeca } = require('./peca');
+const { ehDupla, mesmaPeca, compararPecas, valorPeca, textoPeca } = require('./peca');
 const { criarConjunto, embaralhar, distribuir, QUANTIDADE_JOGADORES } = require('./conjunto');
 const { Mesa, DIREITA } = require('./mesa');
 
+const BATIDA = 'batida';
+const TRANCADO = 'trancado';
+const PASSES_PARA_TRANCAR = 2;
 
 class Partida {
   constructor({ rng, ordem, jogadores = QUANTIDADE_JOGADORES } = {}) {
@@ -58,6 +61,10 @@ class Partida {
     return this.monte.length;
   }
 
+  somaMao(jogador) {
+    return this.mao(jogador).reduce((total, peca) => total + valorPeca(peca), 0);
+  }
+
   pecasJogaveis(jogador) {
     const mao = this.mao(jogador);
     if (this.mesa.estaVazia()) {
@@ -84,7 +91,11 @@ class Partida {
     }
     this.maos[jogador].splice(indice, 1);
     this.passesSeguidos = 0;
-    this.passarVez();
+    if (this.maos[jogador].length === 0) {
+      this.encerrar(BATIDA, jogador);
+    } else {
+      this.passarVez();
+    }
   }
 
   comprar(jogador) {
@@ -109,7 +120,11 @@ class Partida {
       throw new Error('Só é possível passar com o monte vazio');
     }
     this.passesSeguidos += 1;
-    this.passarVez();
+    if (this.passesSeguidos === PASSES_PARA_TRANCAR) {
+      this.encerrarTrancado();
+    } else {
+      this.passarVez();
+    }
   }
 
   validarJogador(jogador) {
@@ -119,6 +134,9 @@ class Partida {
   }
 
   validarAcao(jogador) {
+    if (this.encerrada) {
+      throw new Error('A partida já terminou');
+    }
     this.validarJogador(jogador);
     if (jogador !== this.jogadorAtual) {
       throw new Error(`Não é a vez do jogador ${jogador}`);
@@ -146,6 +164,21 @@ class Partida {
   passarVez() {
     this.jogadorAtual = 1 - this.jogadorAtual;
   }
+
+  encerrarTrancado() {
+    const soma0 = this.somaMao(0);
+    const soma1 = this.somaMao(1);
+    if (soma0 === soma1) {
+      this.encerrar(TRANCADO, null);
+    } else {
+      this.encerrar(TRANCADO, soma0 < soma1 ? 0 : 1);
+    }
+  }
+
+  encerrar(motivo, vencedor) {
+    const pontos = vencedor === null ? 0 : this.somaMao(1 - vencedor);
+    this.resultado = { motivo, vencedor, pontos };
+  }
 }
 
-module.exports = { Partida };
+module.exports = { Partida, BATIDA, TRANCADO };
